@@ -1,0 +1,2 @@
+function n(){try{return window.localStorage.getItem("token")}catch{return null}}async function t(){const e=n();if(e)try{await chrome.runtime.sendMessage({type:"AUTH_SYNC",token:e}),window.postMessage({type:"CLUESO_CLONE_TOKEN_SYNCED"},"*")}catch{}}t();setTimeout(()=>{t()},500);setTimeout(()=>{t()},2e3);window.addEventListener("message",e=>{e.source===window&&e.data?.type==="CLUESO_CLONE_REQUEST_TOKEN"&&t()});window.addEventListener("storage",e=>{e.key==="token"&&t()});
+//# sourceMappingURL=content-script.js.map

@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Clueso Clone Recorder",
+  "version": "0.1.0",
+  "description": "Screen/tab recorder for the Clueso clone.",
+  "icons": {
+    "16": "assets/icon16.png",
+    "32": "assets/icon32.png",
+    "128": "assets/icon128.png"
+  },
+  "action": {
+    "default_title": "Recorder",
+    "default_popup": "popup/popup.html"
+  },
+  "permissions": ["tabCapture", "downloads", "storage", "offscreen", "scripting", "tabs"],
+  "host_permissions": ["http://localhost:3000/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:3000/*"],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "externally_connectable": {
+    "matches": ["http://localhost:3000/*"]
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}
