@@ -38,6 +38,19 @@ Do **not** commit `.env*` files.
 - Backend: `cd server && npm run dev` (http://localhost:5001)
 - Frontend: `cd client && pnpm dev` (http://localhost:3000)
 
+### Recording (in-app)
+The dashboard includes a **Record** option to capture audio/video directly from the browser.
+
+- Go to: **Dashboard → Videos → Upload/Record**
+- Click **Record** to start capturing.
+- Your browser will prompt for permissions:
+  - **Microphone** (required)
+  - **Camera** (only if recording video)
+
+Notes:
+- Recording uses the browser MediaDevices APIs, so it requires **HTTPS** in production.
+- If permissions were denied previously, re-enable them in your browser site settings for `http://localhost:3000`.
+
 ## Project structure
 ```
 clueso/
