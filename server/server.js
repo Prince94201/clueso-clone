@@ -25,14 +25,14 @@ const resolvers = require('./src/graphql/resolvers');
 // Routes
 const authRoutes = require('./src/routes/auth');
 const videoRoutes = require('./src/routes/videos');
-const aiRoutes = require('./src/routes/ai');
+const aiRoutes = require('../ai/routes');
 const shareRoutes = require('./src/routes/share');
 const videoShareRoutes = require('./src/routes/videos.share');
 
 const app = express();
 
 // Middleware
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*'}));
+app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.resolve(process.env.UPLOAD_PATH || './uploads')));

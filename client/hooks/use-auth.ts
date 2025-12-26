@@ -30,6 +30,9 @@ export const useAuth = create<AuthState>()(
         } else {
           localStorage.removeItem("token")
         }
+        if (typeof window !== 'undefined') {
+          window.postMessage({ type: 'CLUESO_CLONE_REQUEST_TOKEN' }, '*')
+        }
         set({ token })
       },
       login: async (email: string, password: string) => {

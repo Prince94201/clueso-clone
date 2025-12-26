@@ -1,0 +1,26 @@
+{
+    "name": "clueso-ai-service",
+    "version": "1.0.0",
+    "description": "AI service components for Clueso Clone",
+    "main": "service.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "dev": "echo 'This is a library module, please run the server instead.'"
+    },
+    "keywords": [
+        "ai",
+        "transcription",
+        "voiceover",
+        "summary"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "groq-sdk": "^0.10.0",
+        "openai": "^6.15.0",
+        "uuid": "^13.0.0"
+    },
+    "peerDependencies": {
+        "express": "^4.0.0"
+    }
+}

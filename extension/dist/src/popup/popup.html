@@ -1,62 +1,126 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Recorder</title>
-    <style>
-      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 12px; width: 280px; }
-      button { width: 100%; padding: 10px; margin-top: 8px; }
-      label { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
-      .status { margin-top: 10px; font-size: 12px; color: #444; }
-      .row { display:flex; gap: 8px; }
-      .row button { width: 100%; }
-      .section { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.08); }
-      .hidden { display: none; }
-      .muted { font-size: 12px; color: #666; margin-top: 6px; }
-      .header { display:flex; align-items:center; gap:10px; }
-      .logo { width: 34px; height: 34px; border-radius: 10px; background: #6d28d9; display:flex; align-items:center; justify-content:center; }
-      .logo img { width: 18px; height: 18px; filter: brightness(0) invert(1); }
-      .title { margin:0; font-size: 14px; font-weight: 700; }
-      .subtitle { margin:0; margin-top:2px; font-size: 12px; color:#666; }
-    </style>
-    <script type="module" crossorigin src="/assets/popup.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
-  </head>
-  <body>
-    <div class="header">
-      <div class="logo" aria-hidden="true">
-        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAHLSURBVHgB7VfblYIwEJ19FEAJlkAJsQOtQEvQCuBvP6EDsAKhAu1ArUA7gA6yc9kNJ4HEN2Y/9p4zcEKG3JvJzBwgMiHYMraKTT7Zqt+1Q3IgGYDUZVGXPHohubJEkYceyJWJD7580ZlzGRpv9JMcAflBDQGSPOKdPMO7gE96ErIssz6v65oOhwNtt1s6nU5Wn6eU1CUcj0c5mUx677VJGARBYwo2tboP5vXxZrMhG3QfRGM8HtN+v+9HYDQaNSoV1ut1T20cx+28EELmed6ObVEJw1BWVWVEgo/K8HnXdwx1auccLkqShO4FkzdR0XcPsHDDz6gCkE+n09Z5sVhQFEX0KPlqtaKyLK2+vTLE+UCEAoe9EfII+Xw+d/pb+wBKZrlctmMcxWw2o0uAzy3kCs7S0pMOyYTEdCUhkxvJhjl9LeWLRO/wnK/vNE2lDRDgmoPw7jp3C9Bf7gqAXUP+sAA+U7nb7XoCMMdnbjwHgc04F5peA7tZgBKhNyq1EO56brgAAbZ1b/oeYLKmJFGqHFJjDg2m22R0FEXRa8HA/wfJnxBQkz/UEFCSPxS4CLqyFAew9n8k9UAed8MRv5A8JQcQkpyG/T0XOuE3m1c0JyJn8sIAAAAASUVORK5CYII=" alt="" />
-      </div>
-      <div>
-        <p class="title">Clueso Clone</p>
-        <p class="subtitle">Record or upload</p>
-      </div>
-    </div>
 
-    <div class="status" id="auth"></div>
-    <div class="status" id="authHint" style="display:none;">
-      Sign in on the web app, then refresh that tab to connect.
-    </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recorder</title>
+  <style>
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      margin: 12px;
+      width: 280px;
+    }
 
-    <div class="section">
-      <div class="row">
-        <button id="chooseRecord">Record</button>
-        <button id="chooseUpload">Upload</button>
-      </div>
-      <div class="muted">Record opens the full recorder in the app. Upload opens the app upload page.</div>
-    </div>
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+    }
 
-    <div class="section hidden" id="recordSection">
-      <label>
-        <input id="mic" type="checkbox" />
-        Include microphone
-      </label>
-      <button id="start">Start recording tab</button>
-      <button id="stop" disabled>Stop & download</button>
-      <div class="status" id="status"></div>
-      <button id="back" style="margin-top:10px;" type="button">Back</button>
-    </div>
+    label {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
 
-  </body>
+    .status {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #444;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .row button {
+      width: 100%;
+    }
+
+    .section {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .muted {
+      font-size: 12px;
+      color: #666;
+      margin-top: 6px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: #6d28d9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo img {
+      width: 18px;
+      height: 18px;
+      filter: brightness(0) invert(1);
+    }
+
+    .title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin: 0;
+      margin-top: 2px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+  <script type="module" crossorigin src="/assets/popup.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
+</head>
+
+<body>
+  <div class="header">
+    <div class="logo" aria-hidden="true">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAHLSURBVHgB7VfblYIwEJ19FEAJlkAJsQOtQEvQCuBvP6EDsAKhAu1ArUA7gA6yc9kNJ4HEN2Y/9p4zcEKG3JvJzBwgMiHYMraKTT7Zqt+1Q3IgGYDUZVGXPHohubJEkYceyJWJD7580ZlzGRpv9JMcAflBDQGSPOKdPMO7gE96ErIssz6v65oOhwNtt1s6nU5Wn6eU1CUcj0c5mUx677VJGARBYwo2tboP5vXxZrMhG3QfRGM8HtN+v+9HYDQaNSoV1ut1T20cx+28EELmed6ObVEJw1BWVWVEgo/K8HnXdwx1auccLkqShO4FkzdR0XcPsHDDz6gCkE+n09Z5sVhQFEX0KPlqtaKyLK2+vTLE+UCEAoe9EfII+Xw+d/pb+wBKZrlctmMcxWw2o0uAzy3kCs7S0pMOyYTEdCUhkxvJhjl9LeWLRO/wnK/vNE2lDRDgmoPw7jp3C9Bf7gqAXUP+sAA+U7nb7XoCMMdnbjwHgc04F5peA7tZgBKhNyq1EO56brgAAbZ1b/oeYLKmJFGqHFJjDg2m22R0FEXRa8HA/wfJnxBQkz/UEFCSPxS4CLqyFAew9n8k9UAed8MRv5A8JQcQkpyG/T0XOuE3m1c0JyJn8sIAAAAASUVORK5CYII=" alt="" />
+    </div>
+    <div>
+      <p class="title">Clueso Clone</p>
+      <p class="subtitle">Record or upload</p>
+    </div>
+  </div>
+
+  <!-- Authentication status hidden as per user request to 'stay connected always' -->
+  <div style="display:none;" class="status" id="auth"></div>
+  <div style="display:none;" class="status" id="authHint"></div>
+
+  <!-- Direct recording interface -->
+  <div class="section" id="recordSection">
+    <label>
+      <input id="mic" type="checkbox" />
+      Include microphone
+    </label>
+    <button id="start">Start recording tab</button>
+    <button id="stop" disabled>Stop & download</button>
+    <div class="status" id="status"></div>
+  </div>
+
+</body>
+
 </html>

@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Play, Plus, User, LogOut, Menu } from "lucide-react"
+import { Play, Plus, User, LogOut, Menu, LayoutDashboard, Video } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 interface NavBarProps {
@@ -58,6 +58,20 @@ export function NavBar({ onMenuClick, rightActions }: NavBarProps) {
                 <Button size="sm" className="gap-2 hover:shadow-lg hover:shadow-primary/30 transition-all duration-300">
                   <Plus className="h-4 w-4" />
                   <span className="hidden sm:inline">Create</span>
+                </Button>
+              </Link>
+
+              <Link href="/dashboard">
+                <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
+                  <LayoutDashboard className="h-4 w-4" />
+                  <span className="hidden sm:inline">Dashboard</span>
+                </Button>
+              </Link>
+
+              <Link href="/videos">
+                <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
+                  <Video className="h-4 w-4" />
+                  <span className="hidden sm:inline">Library</span>
                 </Button>
               </Link>
 

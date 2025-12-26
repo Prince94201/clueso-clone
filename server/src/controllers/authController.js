@@ -80,7 +80,7 @@ exports.login = async (req, res, next) => {
     }
 
     const { email, password } = req.body;
-    const users = await query('SELECT id, email, password_hash, name FROM users WHERE email = ?', [email]);
+    const users = await query('SELECT id, email, password_hash, name FROM users WHERE email = ?', [email]); 
     const user = users[0];
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
 

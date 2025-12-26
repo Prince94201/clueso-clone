@@ -1,22 +1,21 @@
 # Clueso
 
 Monorepo:
-- `client/` — Next.js frontend
+- `client/` — Next.js frontend (UI & Dashboard)
 - `server/` — Node.js/Express + Apollo GraphQL backend
+- `ai/` — Dedicated AI service library (transcription, summary, vision, voiceover)
 
 ## Quick start
 
 ### Prerequisites
 - Node.js (LTS)
 - `pnpm` (frontend) and `npm` (backend)
-- Optional:
-  - `ffmpeg`
-  - `whisper-cli` + model file
-  - Piper (local TTS)
+- `ffmpeg` (installed via system or dependencies handled by `@ffmpeg-installer`)
 
 ### Install dependencies
-- `cd client && pnpm install`
-- `cd server && npm install`
+- Frontend: `cd client && pnpm install`
+- Backend: `cd server && npm install`
+- AI Library: `cd ai && npm install`
 
 ### Environment variables
 Do **not** commit `.env*` files.
@@ -26,43 +25,43 @@ Do **not** commit `.env*` files.
 
 - `server/.env`
   - `PORT=5001`
-  - Optional:
-    - `OPENAI_API_KEY=...`
-    - `WHISPER_CLI_PATH=whisper-cli`
-    - `WHISPER_MODEL_PATH=server/models/ggml-base.en.bin`
-    - `PIPER_BIN_PATH=...`
-    - `PIPER_MODEL_PATH=...`
-    - `FFMPEG_PATH=ffmpeg`
+  - `GROQ_API_KEY=...` (Primary for Text/Vision/Audio)
+  - `OPENAI_API_KEY=...` (Fallback)
+  - `UPLOAD_PATH=./uploads`
 
 ### Run locally
 - Backend: `cd server && npm run dev` (http://localhost:5001)
 - Frontend: `cd client && pnpm dev` (http://localhost:3000)
 
-### Recording (in-app)
-The dashboard includes a **Record** option to capture audio/video directly from the browser.
+## Features
 
-- Go to: **Dashboard → Videos → Upload/Record**
-- Click **Record** to start capturing.
-- Your browser will prompt for permissions:
-  - **Microphone** (required)
-  - **Camera** (only if recording video)
+### AI-Powered Analysis
+- **Transcription**: Uses Groq (Whisper) for fast, accurate audio transcription.
+- **Visual Understanding**: Analyzes video frames (Visual Actions) combined with audio to generate comprehensive context.
+- **AI Summary**: Generates concise summaries of the video content.
+- **Voiceover**: Generates professional voiceovers using AI (OpenAI TTS).
+- **Auto-Documentation**: Creates step-by-step guides based on video content.
 
-Notes:
-- Recording uses the browser MediaDevices APIs, so it requires **HTTPS** in production.
-- If permissions were denied previously, re-enable them in your browser site settings for `http://localhost:3000`.
+### Video Management
+- **Recording**: Record screen/camera directly from the browser.
+- **Export**: 
+  - **Download Video**: Direct download of your video file.
+  - **Share**: Generate public share links.
+- **Dashboard**: Organized library with status tracking (Processing, Ready).
 
 ## Project structure
 ```
 clueso/
-  client/         # Next.js app
-  server/         # Express + Apollo GraphQL API
-    models/       # Local AI models (e.g. Whisper)
+  client/         # Next.js app (Dashboard, Video Player, AI UI)
+  server/         # Express + GraphQL API
     src/
-      routes/
-      controllers/
-      graphql/
-      services/   # AI + video/audio processing services
-    uploads/      # runtime artifacts
+      services/   # General services (video, file)
+      graphql/    # Schema & resolvers
+      ai/         # (Legacy reference, logic moved to root ai/ folder)
+  ai/             # Dedicated AI Module
+    controller.js # AI logic (transcribe, summarize, export)
+    service.js    # Integrations (Groq, OpenAI)
+    routes.js     # AI endpoints
 ```
 
 ## Architecture overview
@@ -77,46 +76,27 @@ clueso/
 ┌───────────────────────────┐
 │   Node/Express + Apollo    │
 │          (server/)         │
-└──────────────┬────────────┘
-               │ calls
-               v
-┌───────────────────────────┐
-│      Service layer         │
-│ (server/src/services/*)    │
-│  - aiService.js            │
-│  - videoService.js         │
-│  - fileService.js          │
-└──────────────┬────────────┘
-               │ reads/writes
-               v
+└──────┬─────────────┬──────┘
+       │ calls       │ imports
+       v             v
+┌──────────────┐  ┌──────────────┐
+│ Service Layer│  │  AI Module   │
+│ (server/src) │  │    (ai/)     │
+└──────┬───────┘  └──────┬───────┘
+       │ reads/writes    │ processes
+       v                 v
 ┌───────────────────────────┐
 │   Local filesystem store   │
-│  (server/uploads/*, models)│
+│  (server/uploads/*)        │
 └───────────────────────────┘
 ```
 
-AI component:
-- `server/src/services/aiService.js`
-  - Transcription: local `whisper-cli` (preferred)
-  - Script improvement + docs: OpenAI chat completions
-  - Voiceover: Piper → macOS `say` → OpenAI TTS fallback
-
-## Assumptions & design decisions
-- Monorepo to keep evaluator setup simple and co-locate local assets (`models/`, `uploads/`).
-- Prefer local AI (Whisper/Piper) to reduce API cost/quota; OpenAI is used as fallback.
-- Runtime artifacts are stored on disk (`server/uploads/*`) for local/dev; production would use object storage + a job queue.
+## AI Strategy
+- **Groq-First**: We prioritize Groq for its speed in inference (Llama models) and transcription (Whisper).
+- **Hybrid Analysis**: Videos without audio are analyzed visually (frame-by-frame) to ensure summaries are always relevant.
+- **Fallback**: OpenAI is used if Groq services are unavailable or for specific TTS needs.
 
 ## Troubleshooting
-- Transcription: verify `WHISPER_CLI_PATH` and `WHISPER_MODEL_PATH`.
-- Voiceover: set Piper env vars (or macOS uses `say`); otherwise OpenAI TTS needs `OPENAI_API_KEY`.
-- Media conversion: ensure `ffmpeg` is installed (or set `FFMPEG_PATH`).
-
-## Future scope (video editing)
-- Timeline-based editor (trim, split, merge)
-- Transitions and basic effects (fade, blur, color adjustments)
-- Captions/subtitles (auto-generate + manual edit, export SRT/VTT)
-- Audio tools (noise reduction, normalize, background music)
-- Templates/presets for quick edits
-- Background processing queue + progress tracking for long renders
-- Export profiles (social presets, bitrate/resolution control)
-- Collaboration/versioning (drafts, history, comments)
+- **Port Conflicts**: If port 5001 is in use, check for zombie node processes (`lsof -i :5001`) or check if multiple terminals are running the server.
+- **AI Errors**: Ensure `GROQ_API_KEY` is set in `server/.env`.
+- **Download Issues**: The "Export" button forces a download; if it opens in a tab, ensure the server CORS headers are correct (handled by proxy/backend).

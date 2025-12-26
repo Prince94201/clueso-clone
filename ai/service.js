@@ -6,7 +6,7 @@
 
 const fs = require('fs/promises');
 const fsSync = require('fs');
-const openai = require('../config/openai');
+const llm = require('../server/src/config/openai');
 const { spawn } = require('child_process');
 const path = require('path');
 
@@ -17,7 +17,7 @@ function assertFileExists(filePath, label) {
   if (!fsSync.existsSync(filePath)) {
     throw new Error(
       `${label} not found at '${filePath}'. ` +
-        `Set ${label === 'Whisper model' ? 'WHISPER_MODEL_PATH' : 'WHISPER_CLI_PATH'} or place it at the expected location.`
+      `Set ${label === 'Whisper model' ? 'WHISPER_MODEL_PATH' : 'WHISPER_CLI_PATH'} or place it at the expected location.`
     );
   }
 }
@@ -38,8 +38,49 @@ async function withRetry(fn, attempts = 5) {
   throw lastErr;
 }
 
+function shouldFallbackToLocalLLM(err) {
+  const status = err?.status || err?.response?.status;
+  const msg = String(err?.message || err?.response?.data?.error?.message || '');
+  // Only used to decide whether to fallback; local fallback is disabled.
+  // Keep to maintain behavior of throwing original error when OpenAI is unavailable.
+  return status === 429 || !process.env.OPENAI_API_KEY || /quota|insufficient|exceeded/i.test(msg);
+}
+
+function getTextModel() {
+  // Prefer Groq free-tier when configured.
+  if (llm.getProvider && llm.getProvider() === 'groq') {
+    // Common fast Groq models; user can override.
+    return process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+  }
+  return process.env.OPENAI_MODEL || 'gpt-4o-mini';
+}
+
 async function transcribeAudio(audioPath) {
-  // Local transcription using whisper.cpp CLI to avoid OpenAI quota.
+  // 1. Groq Cloud Transcription (Fast & Accurate)
+  // Use distil-whisper-large-v3-en for high quality transcription
+  if (process.env.GROQ_API_KEY) {
+    try {
+      console.log('[AI] Starting Groq transcription for:', audioPath);
+      const Groq = require('groq-sdk');
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      const transcription = await groq.audio.transcriptions.create({
+        file: fsSync.createReadStream(audioPath),
+        model: 'whisper-large-v3',
+        response_format: 'json',
+        language: 'en',
+        temperature: 0.0
+      });
+      const text = (transcription.text || '').trim();
+      console.log('[AI] Groq transcription result length:', text.length);
+      if (!text) console.warn('[AI] Groq returned empty text');
+      return text;
+    } catch (err) {
+      console.warn('Groq transcription error, falling back to local:', err.message);
+      console.error(err);
+    }
+  }
+
+  // 2. Local transcription using whisper.cpp CLI to avoid OpenAI quota.
   // Requirements:
   // - whisper-cli available (Homebrew: /opt/homebrew/bin/whisper-cli)
   // - GGML model file available (default: server/models/ggml-base.en.bin)
@@ -49,9 +90,9 @@ async function transcribeAudio(audioPath) {
     const candidateModelPaths = process.env.WHISPER_MODEL_PATH
       ? [process.env.WHISPER_MODEL_PATH]
       : [
-          path.resolve(__dirname, '../../models/ggml-base.en.bin'), // server/models
-          path.resolve(__dirname, '../../../models/ggml-base.en.bin'), // repo-root models
-        ];
+        path.resolve(__dirname, '../../models/ggml-base.en.bin'), // server/models
+        path.resolve(__dirname, '../../../models/ggml-base.en.bin'), // repo-root models
+      ];
 
     // Prefer the first one that exists, but do not hard-fail if missing.
     // This matches the previous behavior where whisper-cli produced the error.
@@ -90,23 +131,57 @@ async function transcribeAudio(audioPath) {
     const text = await fs.readFile(txtPath, 'utf8').catch(() => '');
 
     // Cleanup generated files (best-effort)
-    await fs.unlink(txtPath).catch(() => {});
+    await fs.unlink(txtPath).catch(() => { });
 
     return (text || '').trim();
   });
 }
 
-async function improveScript(transcript) {
+async function summarizeContent(rawText) {
+  if (!rawText || rawText.trim().length < 10) {
+    console.log('[AI] Content too short to summarize, returning raw:', rawText);
+    return rawText || 'No significant content detected in video.';
+  }
+
   return withRetry(async () => {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const response = await llm.chatCompletionsCreate({
+      model: getTextModel(),
       messages: [
-        { role: 'system', content: 'Clean this video transcript. Remove filler words (um, uh, like, you know). Improve grammar and clarity. Make it professional. Keep the same meaning.' },
-        { role: 'user', content: transcript }
+        {
+          role: 'system',
+          content: 'You are an expert video summarizer. You will receive a "Hybrid Input" containing "Audio Transcript" (spoken words) and "Visual Actions" (screen descriptions). Synthesize them into a single, cohesive, concise summary. Correlate what is said with what is shown. Capture the main purpose, key actions, and outcomes.'
+        },
+        { role: 'user', content: rawText }
       ],
       temperature: 0.3
     });
     return response.choices[0]?.message?.content || '';
+  });
+}
+
+async function improveScript(transcript) {
+  if (!transcript || transcript.trim().length < 50) {
+    return "Please generate a more detailed summary first before generating a voiceover script.";
+  }
+
+  return withRetry(async () => {
+    const response = await llm.chatCompletionsCreate({
+      model: getTextModel(),
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Create a professional, concise voiceover script based on this video summary. Write ONLY the spoken words. Make it engaging. Do not include "Voiceover:" prefixes or scene descriptions.'
+        },
+        { role: 'user', content: transcript }
+      ],
+      temperature: 0.4
+    });
+    return response.choices[0]?.message?.content || '';
+  }).catch((err) => {
+    // Local LLM fallback removed; propagate error so callers can handle/quota messaging.
+    if (shouldFallbackToLocalLLM(err)) throw err;
+    throw err;
   });
 }
 
@@ -158,8 +233,8 @@ async function generateVoiceover(script, voice = 'alloy') {
       });
 
       const buf = await fs.readFile(mp3Path);
-      await fs.unlink(wavPath).catch(() => {});
-      await fs.unlink(mp3Path).catch(() => {});
+      await fs.unlink(wavPath).catch(() => { });
+      await fs.unlink(mp3Path).catch(() => { });
       return buf;
     }
 
@@ -201,13 +276,16 @@ async function generateVoiceover(script, voice = 'alloy') {
       });
 
       const buf = await fs.readFile(mp3Path);
-      await fs.unlink(aiffPath).catch(() => {});
-      await fs.unlink(mp3Path).catch(() => {});
+      await fs.unlink(aiffPath).catch(() => { });
+      await fs.unlink(mp3Path).catch(() => { });
       return buf;
     }
 
     // Last resort: OpenAI (may 429 if no credits)
-    const response = await openai.audio.speech.create({
+    const openai = require('openai');
+    const OpenAI = openai;
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await client.audio.speech.create({
       model: 'tts-1',
       voice,
       input: script,
@@ -220,23 +298,31 @@ async function generateVoiceover(script, voice = 'alloy') {
 
 async function generateDocumentation(transcript) {
   return withRetry(async () => {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const response = await llm.chatCompletionsCreate({
+      model: getTextModel(),
       messages: [
-        { role: 'system', content: 'Create a step-by-step guide from this video transcript. Format as markdown with numbered steps. Include clear instructions for each step.' },
+        {
+          role: 'system',
+          content:
+            'Create a step-by-step guide from this video transcript. Format as markdown with numbered steps. Include clear instructions for each step.'
+        },
         { role: 'user', content: transcript }
       ],
       temperature: 0.4
     });
     return response.choices[0]?.message?.content || '';
+  }).catch((err) => {
+    // Local LLM fallback removed; propagate error.
+    if (shouldFallbackToLocalLLM(err)) throw err;
+    throw err;
   });
 }
 
 async function generateDocumentationFromFrames(frameDescriptions) {
   return withRetry(async () => {
     const joined = Array.isArray(frameDescriptions) ? frameDescriptions.filter(Boolean).join('\n') : String(frameDescriptions || '');
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const response = await llm.chatCompletionsCreate({
+      model: getTextModel(),
       messages: [
         {
           role: 'system',
@@ -257,36 +343,59 @@ async function generateDocumentationFromFrames(frameDescriptions) {
 
 async function describeFramesWithVision(imageDataUrls) {
   return withRetry(async () => {
-    const images = Array.isArray(imageDataUrls) ? imageDataUrls.slice(0, 8) : [];
-    if (!images.length) return [];
+    // Llama 4 Maverick supports max 5 images.
+    // Batch inputs into chunks of 5.
+    const allImages = Array.isArray(imageDataUrls) ? imageDataUrls : [];
+    if (!allImages.length) return [];
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Describe what is happening in these screenshots from a screen recording. ' +
-            'For each image, output 1-2 sentences describing visible UI and the likely user action. ' +
-            'Return as a numbered list with the same order as provided.'
-        },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Screenshots (in order):' },
-            ...images.map((u) => ({ type: 'image_url', image_url: { url: u } }))
-          ]
-        }
-      ],
-      temperature: 0.2
-    });
+    const BATCH_SIZE = 5;
+    const allDescriptions = [];
 
-    const text = response.choices[0]?.message?.content || '';
-    // Return as lines; caller can keep raw text if desired
-    return text
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean);
+    for (let i = 0; i < allImages.length; i += BATCH_SIZE) {
+      const batch = allImages.slice(i, i + BATCH_SIZE);
+      console.log(`[AI] Processing batch ${Math.floor(i / BATCH_SIZE) + 1} with ${batch.length} images...`);
+
+      let client, model;
+
+      if (process.env.GROQ_API_KEY) {
+        const Groq = require('groq-sdk');
+        client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        model = 'meta-llama/llama-4-maverick-17b-128e-instruct';
+      } else {
+        const OpenAI = require('openai');
+        client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        model = process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini';
+      }
+
+      const response = await client.chat.completions.create({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Analyze these screenshots from a screen recording. ' +
+              'CRITICAL: Be strictly factual. Describe ONLY what is clearly visible in the images. ' +
+              'Do NOT hallucinate application names ("Silent Screen Recorder", etc) or steps that are not shown. ' +
+              'If the images show a generic interface, describe it generally (e.g. "User clicked the settings icon"). ' +
+              'If the screen is mostly empty or shows a recording overlay, note that effectively.'
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: `Screenshots (batch ${Math.floor(i / BATCH_SIZE) + 1}, in chronological order):` },
+              ...batch.map((u) => ({ type: 'image_url', image_url: { url: u } }))
+            ]
+          }
+        ],
+        temperature: 0.1
+      });
+
+      const text = response.choices[0]?.message?.content || '';
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      allDescriptions.push(...lines);
+    }
+
+    return allDescriptions;
   });
 }
 
@@ -296,5 +405,6 @@ module.exports = {
   generateVoiceover,
   generateDocumentation,
   generateDocumentationFromFrames,
-  describeFramesWithVision
+  describeFramesWithVision,
+  summarizeContent
 };

@@ -36,10 +36,18 @@ async function getVideoById(id) {
   const videos = await query('SELECT * FROM videos WHERE id = ?', [id]);
   const video = mapVideoRow(videos[0]);
   if (!video) return null;
-  const transcripts = await query('SELECT * FROM transcripts WHERE video_id = ?', [id]);
-  const voiceovers = await query('SELECT * FROM voiceovers WHERE video_id = ?', [id]);
-  const docs = await query('SELECT * FROM documentation WHERE video_id = ?', [id]);
-  return { ...video, transcript: transcripts[0] || null, voiceover: mapVoiceoverRow(voiceovers[0]) || null, documentation: docs[0] || null };
+
+  // Always return the latest generated artifacts
+  const transcripts = await query('SELECT * FROM transcripts WHERE video_id = ? ORDER BY created_at DESC LIMIT 1', [id]);
+  const voiceovers = await query('SELECT * FROM voiceovers WHERE video_id = ? ORDER BY created_at DESC LIMIT 1', [id]);
+  const docs = await query('SELECT * FROM documentation WHERE video_id = ? ORDER BY created_at DESC LIMIT 1', [id]);
+
+  return {
+    ...video,
+    transcript: transcripts[0] || null,
+    voiceover: mapVoiceoverRow(voiceovers[0]) || null,
+    documentation: docs[0] || null
+  };
 }
 
 async function getUserVideos(userId, page = 1, limit = 10, filters = {}) {

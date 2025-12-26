@@ -6,20 +6,23 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { NavBar } from "@/components/nav-bar"
-import { Sidebar } from "@/components/sidebar"
 import { RecordDialog } from "@/components/record-dialog"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, token, fetchUser } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [recordOpen, setRecordOpen] = useState(false)
 
   useEffect(() => {
     const initAuth = async () => {
       if (!token) {
+        // Prevent premature redirect if token exists in localStorage but state hasn't hydrated
+        const storedToken = localStorage.getItem("token")
+        if (storedToken) return
+
+        setIsLoading(false)
         router.push("/login")
         return
       }
@@ -28,7 +31,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         try {
           await fetchUser()
         } catch (error) {
+          setIsLoading(false)
           router.push("/login")
+          return
         }
       }
       setIsLoading(false)
@@ -55,9 +60,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen gradient-bg">
-      <NavBar onMenuClick={() => setSidebarOpen(true)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className="min-h-screen gradient-bg flex flex-col">
+      <NavBar />
 
       <RecordDialog
         open={recordOpen}
@@ -65,8 +69,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         onUploaded={(id) => router.push(`/videos/${id}`)}
       />
 
-      <main className="md:pl-64 pt-16">
-        <div className="container mx-auto p-6 max-w-7xl">{children}</div>
+      <main className="flex-1">
+        <div className="container mx-auto p-6 max-w-7xl h-full">{children}</div>
       </main>
     </div>
   )

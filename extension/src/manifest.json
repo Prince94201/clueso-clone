@@ -13,10 +13,10 @@
     "default_popup": "popup/popup.html"
   },
   "permissions": ["tabCapture", "downloads", "storage", "offscreen", "scripting", "tabs"],
-  "host_permissions": ["http://localhost:3000/*"],
+  "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {
-      "matches": ["http://localhost:3000/*"],
+      "matches": ["<all_urls>"],
       "js": ["content-script.js"],
       "run_at": "document_idle"
     }

@@ -80,10 +80,13 @@ export function ActionButtons({ videoId, hasTranscript, onSuccess }: ActionButto
   }
 
   const handleVoiceoverSubmit = () => {
-    ;(async () => {
+    ; (async () => {
       const ok = await ensureTranscript({ silent: true })
       if (!ok) return
-      await handleAction("Generate Voiceover", `/api/ai/videos/${videoId}/generate-voice`, { voice: selectedVoice })
+      await handleAction("Generate Voiceover", `/api/ai/videos/${videoId}/generate-voice`, {
+        voice: selectedVoice,
+        source: 'transcript',
+      })
     })()
     setVoiceDialogOpen(false)
   }
@@ -97,32 +100,32 @@ export function ActionButtons({ videoId, hasTranscript, onSuccess }: ActionButto
           className="gap-2"
         >
           {isLoading === "Transcribe" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-          Transcribe
+          Transcribe & Summarize
         </Button>
 
         <Button
           onClick={() => {
-            ;(async () => {
+            ; (async () => {
               const ok = await ensureTranscript({ silent: true })
               if (!ok) return
-              await handleAction("Improve Script", `/api/ai/videos/${videoId}/improve-script`)
+              await handleAction("Generate AI Script", `/api/ai/videos/${videoId}/improve-script`)
             })()
           }}
           disabled={!!isLoading}
           variant="outline"
           className="gap-2"
         >
-          {isLoading === "Improve Script" ? (
+          {isLoading === "Generate AI Script" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Wand2 className="h-4 w-4" />
           )}
-          Improve Script
+          Generate AI Script
         </Button>
 
         <Button
           onClick={() => {
-            ;(async () => {
+            ; (async () => {
               const ok = await ensureTranscript({ silent: true })
               if (!ok) return
               setVoiceDialogOpen(true)
@@ -140,33 +143,15 @@ export function ActionButtons({ videoId, hasTranscript, onSuccess }: ActionButto
           Generate Voiceover
         </Button>
 
-        <Button
-          onClick={() => {
-            ;(async () => {
-              const ok = await ensureTranscript({ silent: true })
-              if (!ok) return
-              await handleAction("Generate Documentation", `/api/ai/videos/${videoId}/generate-docs`)
-            })()
-          }}
-          disabled={!!isLoading}
-          variant="outline"
-          className="gap-2"
-        >
-          {isLoading === "Generate Documentation" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <FileCode className="h-4 w-4" />
-          )}
-          Generate Docs
-        </Button>
+        {/* Removed Generate Docs/Summary button as Transcribe does it now */}
       </div>
 
       {/* Voice Selection Dialog */}
       <Dialog open={voiceDialogOpen} onOpenChange={setVoiceDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Select Voice</DialogTitle>
-            <DialogDescription>Choose a voice for the voiceover generation</DialogDescription>
+            <DialogTitle>Generate Voiceover</DialogTitle>
+            <DialogDescription>Choose a source text and voice model.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

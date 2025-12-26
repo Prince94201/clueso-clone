@@ -5,17 +5,18 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useVideo } from "@/hooks/use-video"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable"
 import { StatusBadge } from "@/components/status-badge"
 import { ActionButtons } from "@/components/action-buttons"
-import { MarkdownViewer } from "@/components/markdown-viewer"
 import { useToast } from "@/hooks/use-toast"
 import apiClient from "@/lib/axios"
-import { ArrowLeft, Share2, Trash2, Copy, ExternalLink } from "lucide-react"
-import useSWR from "swr"
-
-const fetcher = (url: string) => apiClient.get(url).then((res) => res.data)
+import { ArrowLeft, Share2, Trash2, Copy, ExternalLink, FileText, ScrollText, Mic, Video as VideoIcon } from "lucide-react"
 
 export default function VideoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -28,14 +29,10 @@ export default function VideoDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this video?")) return
-
     setIsDeleting(true)
     try {
       await apiClient.delete(`/api/videos/${id}`)
-      toast({
-        title: "Success",
-        description: "Video deleted successfully",
-      })
+      toast({ title: "Success", description: "Video deleted successfully" })
       router.push("/videos")
     } catch (error: any) {
       toast({
@@ -53,10 +50,7 @@ export default function VideoDetailPage({ params }: { params: Promise<{ id: stri
       const { data } = await apiClient.post(`/api/videos/${id}/share`)
       const url = `${process.env.NEXT_PUBLIC_API_URL}/api/share/${data.token}`
       setShareUrl(url)
-      toast({
-        title: "Success",
-        description: "Share link generated",
-      })
+      toast({ title: "Success", description: "Share link generated" })
     } catch (error: any) {
       toast({
         title: "Error",
@@ -71,16 +65,13 @@ export default function VideoDetailPage({ params }: { params: Promise<{ id: stri
   const copyShareUrl = () => {
     if (shareUrl) {
       navigator.clipboard.writeText(shareUrl)
-      toast({
-        title: "Copied",
-        description: "Share URL copied to clipboard",
-      })
+      toast({ title: "Copied", description: "Share URL copied to clipboard" })
     }
   }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     )
@@ -90,9 +81,7 @@ export default function VideoDetailPage({ params }: { params: Promise<{ id: stri
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold mb-2">Video not found</h2>
-        <Link href="/videos">
-          <Button>Back to Library</Button>
-        </Link>
+        <Link href="/videos"><Button>Back to Library</Button></Link>
       </div>
     )
   }
@@ -100,163 +89,128 @@ export default function VideoDetailPage({ params }: { params: Promise<{ id: stri
   const videoUrl = `${process.env.NEXT_PUBLIC_API_URL}${video.filepath}`
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-6">
-        <Link href="/videos">
-          <Button variant="ghost" className="gap-2 mb-4">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Library
+    <div className="h-[calc(100vh-2rem)] flex flex-col gap-4 w-full p-4">
+      {/* Top Bar */}
+      <div className="flex items-center justify-between shrink-0 bg-card p-3 rounded-lg border shadow-sm">
+        <div className="flex items-center gap-4">
+          <Link href="/videos">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold truncate max-w-[300px]">{video.title}</h1>
+            <StatusBadge status={video.status} />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {shareUrl ? (
+            <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-md mr-2">
+              <span className="text-xs font-mono truncate max-w-[150px]">{shareUrl}</span>
+              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={copyShareUrl}><Copy className="h-3 w-3" /></Button>
+            </div>
+          ) : null}
+          <Button onClick={handleShare} disabled={isSharing} variant="outline" size="sm" className="gap-2">
+            <Share2 className="h-4 w-4" /> Share
           </Button>
-        </Link>
+          <Button onClick={handleDelete} disabled={isDeleting} variant="destructive" size="sm" className="gap-2">
+            <Trash2 className="h-4 w-4" /> Delete
+          </Button>
+        </div>
       </div>
 
-      {/* Video Player */}
-      <Card className="mb-6">
-        <CardContent className="p-0">
-          <div className="aspect-video bg-black rounded-t-lg overflow-hidden">
-            <video src={videoUrl} controls className="w-full h-full">
-              Your browser does not support the video tag.
-            </video>
-          </div>
-          <div className="p-6 space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-2xl font-bold">{video.title}</h1>
-                  <StatusBadge status={video.status} />
-                </div>
-                {video.description && <p className="text-muted-foreground">{video.description}</p>}
-                <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                  {video.duration && <span>Duration: {Math.round(video.duration)}s</span>}
-                  <span>Uploaded: {new Date(video.created_at).toLocaleDateString()}</span>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleShare} disabled={isSharing} variant="outline" className="gap-2 bg-transparent">
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
-                <Button onClick={handleDelete} disabled={isDeleting} variant="destructive" className="gap-2">
-                  <Trash2 className="h-4 w-4" />
-                  Delete
-                </Button>
-              </div>
+      {/* Main Content Area */}
+      <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border shadow-sm overflow-hidden bg-background">
+
+        {/* LEFT: Video Player & Voiceover */}
+        <ResizablePanel defaultSize={70} minSize={50}>
+          <div className="h-full flex flex-col bg-black/95 relative group">
+            <div className="flex-1 overflow-hidden bg-black">
+              <video src={videoUrl} controls className="w-full h-full" poster={video.thumbnail ? `${process.env.NEXT_PUBLIC_API_URL}${video.thumbnail}` : undefined}>
+                Your browser does not support the video tag.
+              </video>
             </div>
 
-            {/* Share URL */}
-            {shareUrl && (
-              <Card className="bg-muted">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-3">
+            <div className="bg-card border-t p-4 shrink-0 space-y-4">
+              <div className="flex flex-col items-center gap-4">
+                {/* Centralized Action Buttons */}
+                <ActionButtons videoId={video.id} hasTranscript={!!video.transcript?.original_transcript} onSuccess={mutate} />
+
+                {/* Voiceover Player (Below Video) */}
+                {video.voiceover?.filepath && (
+                  <div className="w-full max-w-2xl bg-muted/30 rounded-lg p-3 border flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                      <Mic className="h-5 w-5 text-primary" />
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground mb-1">Share URL</p>
-                      <p className="text-sm font-mono truncate">{shareUrl}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={copyShareUrl}>
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" asChild>
-                        <a href={shareUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-medium">AI Voiceover</p>
+                        <span className="text-xs text-muted-foreground capitalize">{video.voiceover.voice_type}</span>
+                      </div>
+                      <audio src={`${process.env.NEXT_PUBLIC_API_URL}${video.voiceover.filepath}`} controls className="w-full h-8" />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </ResizablePanel>
 
-      {/* AI Actions */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>AI Processing</CardTitle>
-          <CardDescription>Apply AI enhancements to your video</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ActionButtons videoId={video.id} hasTranscript={!!video.transcript?.original_transcript} onSuccess={mutate} />
-        </CardContent>
-      </Card>
+        <ResizableHandle withHandle />
 
-      {/* Content Tabs */}
-      <Card>
-        <CardContent className="p-6">
-          <Tabs defaultValue="transcript">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="transcript">Transcript</TabsTrigger>
-              <TabsTrigger value="script">Improved Script</TabsTrigger>
-              <TabsTrigger value="voiceover">Voiceover</TabsTrigger>
-              <TabsTrigger value="docs">Documentation</TabsTrigger>
-            </TabsList>
+        {/* RIGHT: AI Content (Summary/Script) */}
+        <ResizablePanel defaultSize={30} minSize={20} maxSize={50} className="bg-muted/10">
+          <Tabs defaultValue="transcript" className="h-full flex flex-col">
+            <div className="border-b bg-card">
+              <TabsList className="w-full justify-start rounded-none bg-transparent p-0 h-10">
+                <TabsTrigger value="transcript" className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-muted/20">
+                  <FileText className="h-4 w-4 mr-2" /> AI Summary
+                </TabsTrigger>
+                <TabsTrigger value="script" className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-muted/20">
+                  <ScrollText className="h-4 w-4 mr-2" /> AI Script
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-            <TabsContent value="transcript" className="mt-6">
+            {/* Summary Tab */}
+            <TabsContent value="transcript" className="flex-1 overflow-y-auto p-4 m-0 data-[state=inactive]:hidden">
               {video.transcript?.original_transcript ? (
-                <div className="space-y-3">
-                  {/* Heuristic: visual transcript generated from silent video */}
-                  {/^\s*\d+\./m.test(video.transcript.original_transcript) && (
-                    <div className="rounded-lg border border-border/60 bg-muted/50 p-3 text-sm text-muted-foreground">
-                      This appears to be a non-voice video. No audio transcription is available. Showing a visual summary generated from the video instead.
-                    </div>
-                  )}
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <pre className="whitespace-pre-wrap bg-muted p-4 rounded-lg text-sm leading-relaxed">
-                      {video.transcript.original_transcript}
-                    </pre>
-                  </div>
+                <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed">
+                  <p className="whitespace-pre-wrap">{video.transcript.original_transcript}</p>
                 </div>
               ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>No transcript available. Click "Transcribe" to generate one (audio transcript or visual summary for silent videos).</p>
+                <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-4">
+                  <FileText className="h-12 w-12 mb-2 opacity-20" />
+                  <p className="text-sm">No summary generated.</p>
+                  <p className="text-xs opacity-70 mt-1">Click "Transcribe & Summarize"</p>
                 </div>
               )}
             </TabsContent>
 
-            <TabsContent value="script" className="mt-6">
+            {/* Script Tab */}
+            <TabsContent value="script" className="flex-1 overflow-y-auto p-4 m-0 data-[state=inactive]:hidden">
               {video.transcript?.improved_script ? (
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <pre className="whitespace-pre-wrap bg-muted p-4 rounded-lg text-sm leading-relaxed">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground bg-blue-500/10 text-blue-500 px-2 py-1 rounded w-fit">Voiceover Script</p>
+                  </div>
+                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">
                     {video.transcript.improved_script}
                   </pre>
                 </div>
               ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>No improved script available. Click "Improve Script" to generate one.</p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="voiceover" className="mt-6">
-              {video.voiceover?.filepath ? (
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Voice Type: {video.voiceover.voice_type}</p>
-                    <audio src={`${process.env.NEXT_PUBLIC_API_URL}${video.voiceover.filepath}`} controls className="w-full">
-                      Your browser does not support the audio tag.
-                    </audio>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>No voiceover available. Click "Generate Voiceover" to create one.</p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="docs" className="mt-6">
-              {video.documentation?.content ? (
-                <MarkdownViewer content={video.documentation.content} />
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>No documentation available. Click "Generate Docs" to create documentation.</p>
+                <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-4">
+                  <ScrollText className="h-12 w-12 mb-2 opacity-20" />
+                  <p className="text-sm">No script available.</p>
+                  <p className="text-xs opacity-70 mt-1">Generate AI Script to see it here.</p>
                 </div>
               )}
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
+        </ResizablePanel>
+
+      </ResizablePanelGroup>
     </div>
   )
 }
