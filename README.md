@@ -4,6 +4,7 @@ Monorepo:
 - `client/` — Next.js frontend (UI & Dashboard)
 - `server/` — Node.js/Express + Apollo GraphQL backend
 - `ai/` — Dedicated AI service library (transcription, summary, vision, voiceover)
+- `extension/` — Chrome Extension for recording
 
 ## Quick start
 
@@ -16,6 +17,7 @@ Monorepo:
 - Frontend: `cd client && pnpm install`
 - Backend: `cd server && npm install`
 - AI Library: `cd ai && npm install`
+- Extension: `cd extension && npm install`
 
 ### Environment variables
 Do **not** commit `.env*` files.
@@ -32,6 +34,18 @@ Do **not** commit `.env*` files.
 ### Run locally
 - Backend: `cd server && npm run dev` (http://localhost:5001)
 - Frontend: `cd client && pnpm dev` (http://localhost:3000)
+
+### Chrome Extension (Setup)
+1. Build the extension:
+   ```bash
+   cd extension
+   npm run build
+   ```
+2. Open Chrome and go to `chrome://extensions`.
+3. Enable **Developer mode** (top right).
+4. Click **Load unpacked**.
+5. Select the `extension/dist` folder.
+6. The Clueso extension should now be active in your toolbar!
 
 ## Features
 
